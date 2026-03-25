@@ -301,6 +301,21 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         player.initialize(filesDir.path, cacheDir.path)
         player.playFile(filepath)
 
+        // ATMOSphere: Notify Presenter that video playback is starting.
+        // MPV uses its own native decoder (libmpv/FFmpeg), not Android MediaCodec,
+        // so the framework MediaCodec hook doesn't fire. This broadcast tells
+        // Presenter to show the video overlay and track playback state.
+        try {
+            val presenterIntent = android.content.Intent("com.atmosphere.presenter.MEDIA_STATE_CHANGED")
+            presenterIntent.setPackage("com.atmosphere.presenter")
+            presenterIntent.putExtra("package", packageName)
+            presenterIntent.putExtra("state", "VIDEO_START")
+            presenterIntent.putExtra("title", filepath.substringAfterLast('/'))
+            sendBroadcast(presenterIntent)
+        } catch (e: Exception) {
+            Log.d(TAG, "ATMOSphere: Failed to notify Presenter: ${e.message}")
+        }
+
         mediaSession = initMediaSession()
         updateMediaSession()
         BackgroundPlaybackService.mediaToken = mediaSession?.sessionToken
@@ -410,6 +425,17 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                 super.onPause()
                 return
             }
+        }
+
+        // ATMOSphere: Notify Presenter that video playback has stopped.
+        try {
+            val presenterIntent = android.content.Intent("com.atmosphere.presenter.MEDIA_STATE_CHANGED")
+            presenterIntent.setPackage("com.atmosphere.presenter")
+            presenterIntent.putExtra("package", packageName)
+            presenterIntent.putExtra("state", "VIDEO_STOP")
+            sendBroadcast(presenterIntent)
+        } catch (e: Exception) {
+            Log.d(TAG, "ATMOSphere: Failed to notify Presenter stop: ${e.message}")
         }
 
         onPauseImpl()
