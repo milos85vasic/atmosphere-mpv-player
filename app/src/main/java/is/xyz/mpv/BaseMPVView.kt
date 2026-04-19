@@ -54,6 +54,13 @@ abstract class BaseMPVView(context: Context, attrs: AttributeSet) : SurfaceView(
 
     protected abstract fun observeProperties()
 
+    /**
+     * ATMOSphere dual-display: when true, surfaceCreated/Destroyed skip
+     * attachSurface/detachSurface calls — the owning Activity manages
+     * MPVLib surface binding against a Presentation's SurfaceView instead.
+     */
+    var useExternalSurface: Boolean = false
+
     private var filePath: String? = null
 
     /**
@@ -81,8 +88,10 @@ abstract class BaseMPVView(context: Context, attrs: AttributeSet) : SurfaceView(
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        Log.w(TAG, "attaching surface")
-        MPVLib.attachSurface(holder.surface)
+        Log.w(TAG, "attaching surface (external=$useExternalSurface)")
+        if (!useExternalSurface) {
+            MPVLib.attachSurface(holder.surface)
+        }
         // This forces mpv to render subs/osd/whatever into our surface even if it would ordinarily not
         MPVLib.setOptionString("force-window", "yes")
 
@@ -96,14 +105,16 @@ abstract class BaseMPVView(context: Context, attrs: AttributeSet) : SurfaceView(
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
-        Log.w(TAG, "detaching surface")
+        Log.w(TAG, "detaching surface (external=$useExternalSurface)")
         MPVLib.setPropertyString("vo", "null")
         MPVLib.setPropertyString("force-window", "no")
         // Note that before calling detachSurface() we need to be sure that libmpv
         // is done using the surface.
         // FIXME: There could be a race condition here, because I don't think
         // setting a property will wait for VO deinit.
-        MPVLib.detachSurface()
+        if (!useExternalSurface) {
+            MPVLib.detachSurface()
+        }
     }
 
     companion object {

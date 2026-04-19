@@ -244,6 +244,11 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     private var playbackHasStarted = false
     private var onloadCommands = mutableListOf<Array<String>>()
 
+    // ATMOSphere dual-display: when a secondary Presentation display is available,
+    // render MPV's video output to that Presentation's SurfaceView so the TV shows
+    // the video while the phone/tablet keeps the controls UI.
+    private var secondaryPresentation: VideoSecondaryPresentation? = null
+
     // Activity lifetime
 
     override fun onCreate(icicle: Bundle?) {
@@ -298,6 +303,10 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
 
         player.addObserver(this)
+        // ATMOSphere dual-display: must run BEFORE player.initialize() so the
+        // useExternalSurface flag is honored when BaseMPVView adds its holder
+        // callback inside initialize().
+        maybeSetupSecondaryDisplay()
         player.initialize(filesDir.path, cacheDir.path)
         player.playFile(filepath)
 
@@ -330,6 +339,85 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         volumeControlStream = STREAM_TYPE
     }
 
+    /**
+     * ATMOSphere: if a secondary Presentation display is attached (typically the TV
+     * on HDMI-A-1), route libmpv video output to a Presentation on that display.
+     * The MPVView still exists in the local layout but is told not to call
+     * attachSurface/detachSurface — libmpv is bound to the Presentation's SurfaceView
+     * instead. Can be opted out with `setprop mpv.atmosphere.dual_display false`.
+     */
+    private fun maybeSetupSecondaryDisplay() {
+        val disabled = try {
+            val propClass = Class.forName("android.os.SystemProperties")
+            val getMethod = propClass.getMethod(
+                "get",
+                String::class.java,
+                String::class.java,
+            )
+            val value = getMethod.invoke(
+                null,
+                "mpv.atmosphere.dual_display",
+                "true",
+            ) as String
+            value.equals("false", ignoreCase = true)
+        } catch (e: Throwable) {
+            false
+        }
+        if (disabled) {
+            Log.i(TAG, "ATMOSphere: dual-display opt-out via sysprop, skipping")
+            return
+        }
+
+        val dm = getSystemService(Context.DISPLAY_SERVICE)
+                as? android.hardware.display.DisplayManager ?: return
+        val displays = dm.getDisplays(
+            android.hardware.display.DisplayManager.DISPLAY_CATEGORY_PRESENTATION,
+        )
+        val target = displays.firstOrNull() ?: return
+
+        Log.i(TAG, "ATMOSphere: binding mpv to Presentation on display ${target.displayId} (${target.name})")
+
+        // Flip external-surface flag before BaseMPVView.initialize() wires its
+        // own holder.addCallback(this) — once flipped, the local SurfaceView
+        // will no longer drive attachSurface/detachSurface.
+        player.useExternalSurface = true
+
+        val presentation = VideoSecondaryPresentation(
+            this,
+            target,
+            onReady = { surface ->
+                try {
+                    MPVLib.attachSurface(surface)
+                    MPVLib.setOptionString("force-window", "yes")
+                } catch (e: Throwable) {
+                    Log.w(TAG, "ATMOSphere: attachSurface on presentation failed: ${e.message}")
+                }
+            },
+            onChanged = { w, h ->
+                try {
+                    MPVLib.setPropertyString("android-surface-size", "${w}x$h")
+                } catch (_: Throwable) {
+                }
+            },
+            onLost = {
+                try {
+                    MPVLib.setPropertyString("vo", "null")
+                    MPVLib.setPropertyString("force-window", "no")
+                    MPVLib.detachSurface()
+                } catch (e: Throwable) {
+                    Log.w(TAG, "ATMOSphere: detachSurface on presentation lost failed: ${e.message}")
+                }
+            },
+        )
+        try {
+            presentation.show()
+            secondaryPresentation = presentation
+        } catch (e: Throwable) {
+            Log.w(TAG, "ATMOSphere: presentation.show() failed: ${e.message}")
+            player.useExternalSurface = false
+        }
+    }
+
     private fun finishWithResult(code: Int, includeTimePos: Boolean = false) {
         // Refer to http://mpv-android.github.io/mpv-android/intent.html
         // FIXME: should track end-file events to accurately report OK vs CANCELED
@@ -347,6 +435,18 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
 
     override fun onDestroy() {
         Log.v(TAG, "Exiting.")
+
+        // ATMOSphere dual-display: tear down the Presentation + detach the surface
+        // from libmpv before the activity's own surface handling runs in super.
+        secondaryPresentation?.let { pres ->
+            try {
+                MPVLib.detachSurface()
+            } catch (e: Throwable) {
+                Log.w(TAG, "ATMOSphere: detachSurface on destroy failed: ${e.message}")
+            }
+            try { pres.dismiss() } catch (_: Throwable) {}
+        }
+        secondaryPresentation = null
 
         // Suppress any further callbacks
         activityIsForeground = false
