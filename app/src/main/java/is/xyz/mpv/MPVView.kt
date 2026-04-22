@@ -197,7 +197,12 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
             Property("shuffle", MPV_FORMAT_FLAG),
             Property("hwdec-current"),
             Property("mute", MPV_FORMAT_FLAG),
-            Property("current-tracks/audio/selected")
+            Property("current-tracks/audio/selected"),
+            // QA 26.04.01 User #6 Tier C2 — subtitle text for
+            // AtmosphereSubtitleForwarder. libmpv emits sub-text on every
+            // cue boundary; forwarder converts it to a VOM routeSubtitleCue
+            // call so Presenter renders the cue on the secondary display.
+            Property("sub-text", MPV_FORMAT_STRING)
         )
 
         for ((name, format) in p)

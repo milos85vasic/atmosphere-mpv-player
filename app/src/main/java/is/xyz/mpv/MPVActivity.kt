@@ -89,6 +89,9 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     // convenience alias
     private val player get() = binding.player
 
+    // QA 26.04.01 User #6 Tier C2 — libmpv sub-text forwarder.
+    private val subtitleForwarder = AtmosphereSubtitleForwarder()
+
     private val seekBarChangeListener = object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
             if (!fromUser)
@@ -303,6 +306,10 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         }
 
         player.addObserver(this)
+        // QA 26.04.01 User #6 Tier C2 — forward libmpv sub-text changes to
+        // ATMOSphere Presenter so subtitles render on the secondary display.
+        // Best-effort: forwarder silently no-ops on non-ATMOSphere builds.
+        player.addObserver(subtitleForwarder)
         // ATMOSphere dual-display: must run BEFORE player.initialize() so the
         // useExternalSurface flag is honored when BaseMPVView adds its holder
         // callback inside initialize().
@@ -467,6 +474,7 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         stopServiceRunnable.run()
 
         player.removeObserver(this)
+        player.removeObserver(subtitleForwarder)
         player.destroy()
         super.onDestroy()
     }
