@@ -136,9 +136,62 @@ esac
 
 OUT="$PARENT_ROOT/device/rockchip/rk3588/prebuilt_apps/atmosphere-mpv-player.apk"
 
-echo "[ATMOSphere-MPV] copying $APK_PATH"
+# Debug-sign the gradle output before copying. Reason: AOSP's
+# LOCAL_CERTIFICATE := platform re-signing mechanism (in
+# prebuilt_apps/Android.mk) requires the input APK to carry at least a
+# v1 (jar-signature) manifest. A fully-unsigned APK (no META-INF/) is
+# rejected by PackageManager at boot — discovered 2026-04-27 when the
+# first MPV rebuild from source landed at /system/app/is.xyz.mpv/ but
+# never registered with PMS ("Could not find package setting for
+# package: is.xyz.mpv" in logcat). The atmosphere-smarttube and
+# atmosphere-torrserve helpers don't hit this because their gradle
+# configs include debug-signing-blocks; MPV's app/build.gradle has no
+# signingConfigs section, so gradle emits a fully-unsigned APK.
+#
+# We sign with the standard Android debug keystore (auto-created if
+# missing). AOSP re-signs with the platform key at image-assembly
+# time so the debug signature is throwaway — its only job is to
+# satisfy PMS's manifest-presence requirement.
+DEBUG_KS="$HOME/.android/debug.keystore"
+if [ ! -f "$DEBUG_KS" ]; then
+    echo "[ATMOSphere-MPV] creating $DEBUG_KS (standard debug passwords)"
+    mkdir -p "$HOME/.android"
+    keytool -genkey -v \
+        -keystore "$DEBUG_KS" \
+        -storepass android -keypass android \
+        -alias androiddebugkey \
+        -dname "CN=Android Debug,O=Android,C=US" \
+        -keyalg RSA -keysize 2048 -validity 10000 2>&1 | tail -2
+fi
+
+# Pick apksigner from build-tools.
+APKSIGNER=""
+for cand in "$HOME/Android/Sdk/build-tools/"*/apksigner \
+            /opt/android-sdk/build-tools/*/apksigner \
+            "${ANDROID_HOME:-}/build-tools/"*/apksigner; do
+    for actual in $cand; do
+        if [ -x "$actual" ]; then APKSIGNER="$actual"; break 2; fi
+    done
+done
+if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+    echo "[ATMOSphere-MPV] ERROR: apksigner not found — install Android SDK build-tools"
+    exit 6
+fi
+
+# Stage a debug-signed copy. We sign in /tmp so the gradle build cache
+# never sees the signed APK (would invalidate up-to-date checks).
+SIGNED=/tmp/atmosphere-mpv-player-signed.apk
+cp -f "$APK_PATH" "$SIGNED"
+echo "[ATMOSphere-MPV] debug-signing the APK (AOSP will re-sign with platform key)"
+"$APKSIGNER" sign --ks "$DEBUG_KS" \
+    --ks-pass pass:android --key-pass pass:android \
+    --ks-key-alias androiddebugkey \
+    "$SIGNED" 2>&1 | tail -3
+
+echo "[ATMOSphere-MPV] copying $SIGNED"
 echo "             →  $OUT"
-cp -f "$APK_PATH" "$OUT"
+cp -f "$SIGNED" "$OUT"
+rm -f "$SIGNED" "${SIGNED}.idsig" 2>/dev/null || true
 
 # Verify the copy by aapt-checking the application label so the build
 # fails loudly if a stale APK lands here.
