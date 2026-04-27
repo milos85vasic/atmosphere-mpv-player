@@ -3,7 +3,7 @@
      them to be changed based on the locale and options. -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <!-- Simple strings. -->
-    <string name="mpv_activity">ام‌پی‌وی</string>
+    <string name="mpv_activity">ATMOSphere MPV Player</string>
     <string name="label_share_intent">پخش در ام‌پی‌وی</string>
     <string name="title_activity_settings">تنظیمات</string>
     <string name="dialog_ok">قبول</string>
