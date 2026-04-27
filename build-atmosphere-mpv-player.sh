@@ -142,10 +142,24 @@ cp -f "$APK_PATH" "$OUT"
 
 # Verify the copy by aapt-checking the application label so the build
 # fails loudly if a stale APK lands here.
-AAPT="$PARENT_ROOT/../../../../home/milosvasic/Android/Sdk/build-tools/33.0.1/aapt"
-[ -x "$AAPT" ] || AAPT=$(ls -1 "$HOME/Android/Sdk/build-tools/"*/aapt 2>/dev/null | tail -1)
-if [ -n "${AAPT:-}" ] && [ -x "$AAPT" ]; then
-    LABEL=$("$AAPT" dump badging "$OUT" 2>/dev/null | grep -m1 "application-label:" | sed "s|application-label:'\(.*\)'|\1|")
+#
+# Pipeline-trap warning: `set -euo pipefail` + `aapt | grep -m1 | sed`
+# triggers SIGPIPE on aapt when grep exits early, the pipeline returns
+# non-zero, set -e aborts. Workaround: capture aapt output once with
+# `|| true`, then use bash parameter expansion (no pipes).
+AAPT=""
+for cand in "$HOME/Android/Sdk/build-tools/"*/aapt \
+            /opt/android-sdk/build-tools/*/aapt \
+            "${ANDROID_HOME:-}/build-tools/"*/aapt; do
+    for actual in $cand; do
+        if [ -x "$actual" ]; then AAPT="$actual"; break 2; fi
+    done
+done
+if [ -n "$AAPT" ] && [ -x "$AAPT" ]; then
+    RAW=$("$AAPT" dump badging "$OUT" 2>/dev/null) || true
+    LABEL=${RAW#*$'\napplication-label:\''}
+    [ "$LABEL" = "$RAW" ] && LABEL=${RAW#*application-label:\'}
+    LABEL=${LABEL%%\'*}
     case "$LABEL" in
         ATMOSphere*)
             echo "[ATMOSphere-MPV] verified application-label='$LABEL' ✓" ;;
