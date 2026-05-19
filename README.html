@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>README</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">README</h1>
+</header>
+<h1 id="mpv-for-android">mpv for Android</h1>
+<p><a
+href="https://github.com/mpv-android/mpv-android/actions/workflows/build.yml"><img
+src="https://github.com/mpv-android/mpv-android/actions/workflows/build.yml/badge.svg?branch=master"
+alt="Build Status" /></a></p>
+<p>mpv-android is a video player for Android based on <a
+href="https://github.com/mpv-player/mpv">libmpv</a>.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li>Hardware and software video decoding</li>
+<li>Gesture-based seeking, volume/brightness control and more</li>
+<li>libass support for styled subtitles</li>
+<li>Secondary (or dual) subtitle support</li>
+<li>High-quality rendering with advanced settings (scalers, debanding,
+interpolation, ...)</li>
+<li>Play network streams with the "Open URL" function</li>
+<li>Background playback, Picture-in-Picture, keyboard input
+supported</li>
+</ul>
+<h3 id="library">Library?</h3>
+<p>mpv-android is <strong>not</strong> a library/module (AAR) you can
+import into your app.</p>
+<p>If you'd like to use libmpv in your app you can use our code as
+inspiration. The important parts are <a
+href="app/src/main/java/is/xyz/mpv/MPVLib.kt"><code>MPVLib</code></a>,
+<a
+href="app/src/main/java/is/xyz/mpv/BaseMPVView.kt"><code>BaseMPVView</code></a>
+and the <a href="app/src/main/jni/">native code</a>. Native code is
+built by <a href="buildscripts/">these scripts</a>.</p>
+<h2 id="downloads">Downloads</h2>
+<p>You can download mpv-android from the <a
+href="https://github.com/mpv-android/mpv-android/releases">Releases
+section</a> or</p>
+<p><a
+href="https://play.google.com/store/apps/details?id=is.xyz.mpv"><img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png" alt="Get it on Google Play" height="80"></a></p>
+<p><a
+href="https://f-droid.org/packages/is.xyz.mpv"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80"></a></p>
+<p><strong>Note</strong>: Android TV is supported, but only available on
+F-Droid or by installing the APK manually.</p>
+<h2 id="building-from-source">Building from source</h2>
+<p>Take a look at the <a href="buildscripts/README.md">README</a> inside
+the <code>buildscripts</code> directory.</p>
+<p>Some other documentation can be found at this <a
+href="http://mpv-android.github.io/mpv-android/">link</a>.</p>
+</body>
+</html>
