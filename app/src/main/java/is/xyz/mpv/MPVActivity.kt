@@ -252,6 +252,14 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
     // the video while the phone/tablet keeps the controls UI.
     private var secondaryPresentation: VideoSecondaryPresentation? = null
 
+    // §JQ fix (Issues.md): when routing to a secondary Presentation, libmpv's video
+    // output surface attaches ASYNCHRONOUSLY (onReady → attachSurface). playFile() must
+    // be deferred until that surface is attached, otherwise libmpv loads with no output
+    // surface and playback stalls (the 8-ch HDMI thread is never fed). These hold the
+    // deferred file + a timeout fallback so single-display / slow-surface still plays.
+    private var pendingPlayFilepath: String? = null
+    private val secondaryLatchHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     // Activity lifetime
 
     override fun onCreate(icicle: Bundle?) {
@@ -315,7 +323,22 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
         // callback inside initialize().
         maybeSetupSecondaryDisplay()
         player.initialize(filesDir.path, cacheDir.path)
-        player.playFile(filepath)
+        if (secondaryPresentation != null) {
+            // §JQ fix: defer playFile until the secondary Presentation surface is
+            // attached (onReady → attachSurface, which calls playFile for us). Without
+            // this, playFile runs before the async attach and libmpv stalls with no
+            // video output. A timeout fallback covers a surface that never readies.
+            pendingPlayFilepath = filepath
+            secondaryLatchHandler.postDelayed({
+                pendingPlayFilepath?.let { fp ->
+                    pendingPlayFilepath = null
+                    Log.w(TAG, "ATMOSphere: secondary surface attach timeout (4s) — starting playFile fallback")
+                    player.playFile(fp)
+                }
+            }, 4000)
+        } else {
+            player.playFile(filepath)
+        }
 
         // ATMOSphere: Notify Presenter that video playback is starting.
         // MPV uses its own native decoder (libmpv/FFmpeg), not Android MediaCodec,
@@ -396,6 +419,14 @@ class MPVActivity : AppCompatActivity(), MPVLib.EventObserver, TouchGesturesObse
                 try {
                     MPVLib.attachSurface(surface)
                     MPVLib.setOptionString("force-window", "yes")
+                    // §JQ fix: now that the secondary surface is attached, start the
+                    // deferred playback. Idempotent with the timeout fallback — whichever
+                    // fires first nulls pendingPlayFilepath.
+                    pendingPlayFilepath?.let { fp ->
+                        pendingPlayFilepath = null
+                        Log.i(TAG, "ATMOSphere: secondary surface ready — starting deferred playFile")
+                        player.playFile(fp)
+                    }
                 } catch (e: Throwable) {
                     Log.w(TAG, "ATMOSphere: attachSurface on presentation failed: ${e.message}")
                 }
