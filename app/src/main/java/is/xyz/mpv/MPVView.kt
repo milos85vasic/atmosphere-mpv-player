@@ -97,9 +97,14 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
         MPVLib.setOptionString("gpu-context", "android")
         MPVLib.setOptionString("opengl-es", "yes")
         // §GS-4: 4K hwdec/GPU tune. vo=gpu + profile=fast are already applied above
-        // (lines ~23/26) which is the correct low-cost RK3588 render path; hwdec stays
-        // mediacodec,mediacodec-copy (reaches MPP via h264_v4l2m2m) — NOT touched here so
-        // the currently-better MPV playback is preserved. Residual 4K glitching is from the
+        // (lines ~23/26) which is the correct low-cost RK3588 render path.
+        // §GS-1a: hwdec set to v4l2m2m-copy,mediacodec,mediacodec-copy (HWDECS). v4l2m2m-copy
+        // uses FFmpeg's Rockchip V4L2 M2M decoder DIRECTLY (kernel rkvdec via the v4l2 m2m
+        // interface) — distinct backend from mediacodec. This is the Fix #107-safe HW path:
+        // the c2.rk MediaCodec decoders are globally disabled (Fix #107), so the mediacodec
+        // hwdec backend yields only SW — v4l2m2m is the real HW win here. mediacodec stays as
+        // fallback so a codec v4l2m2m cannot handle still plays (no playback break).
+        // Residual 4K glitching is from the
         // SW-fallback avcodec stage saturating cores: bound the lavc decode threads so a 4K
         // SW-decoded frame cannot starve the GPU compositor. 0 (default) lets lavc spawn one
         // thread per core (up to 16) which on the 8-core RK3588 causes scheduling jitter.
@@ -412,6 +417,7 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
         private const val TAG = "mpv"
 
         // mpv option `hwdec` is set to this
-        private const val HWDECS = "mediacodec,mediacodec-copy"
+        // §GS-1a: prefer v4l2m2m-copy HW decode (Rockchip V4L2/MPP; Fix #107-safe), mediacodec fallback
+        private const val HWDECS = "v4l2m2m-copy,mediacodec,mediacodec-copy"
     }
 }
