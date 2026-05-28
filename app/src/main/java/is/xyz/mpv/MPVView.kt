@@ -96,6 +96,14 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
 
         MPVLib.setOptionString("gpu-context", "android")
         MPVLib.setOptionString("opengl-es", "yes")
+        // §GS-4: 4K hwdec/GPU tune. vo=gpu + profile=fast are already applied above
+        // (lines ~23/26) which is the correct low-cost RK3588 render path; hwdec stays
+        // mediacodec,mediacodec-copy (reaches MPP via h264_v4l2m2m) — NOT touched here so
+        // the currently-better MPV playback is preserved. Residual 4K glitching is from the
+        // SW-fallback avcodec stage saturating cores: bound the lavc decode threads so a 4K
+        // SW-decoded frame cannot starve the GPU compositor. 0 (default) lets lavc spawn one
+        // thread per core (up to 16) which on the 8-core RK3588 causes scheduling jitter.
+        MPVLib.setOptionString("vd-lavc-threads", "4")
         MPVLib.setOptionString("hwdec", hwdec)
         MPVLib.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
         MPVLib.setOptionString("ao", "audiotrack,opensles")
