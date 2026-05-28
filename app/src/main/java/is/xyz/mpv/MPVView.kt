@@ -417,7 +417,8 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
         private const val TAG = "mpv"
 
         // mpv option `hwdec` is set to this
-        // §GS-1a: prefer v4l2m2m-copy HW decode (Rockchip V4L2/MPP; Fix #107-safe), mediacodec fallback
-        private const val HWDECS = "v4l2m2m-copy,mediacodec,mediacodec-copy"
+        // §GS-1: prefer rkmpp (Rockchip MPP HW decode via FFmpeg hevc_rkmpp/h264_rkmpp/vp9_rkmpp),
+        // then rkmpp-copy, then v4l2m2m-copy, then mediacodec fallback (no playback break)
+        private const val HWDECS = "rkmpp,rkmpp-copy,v4l2m2m-copy,mediacodec"
     }
 }

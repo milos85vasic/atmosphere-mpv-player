@@ -11,6 +11,22 @@ else
 	exit 255
 fi
 
+# ATMOSphere §GS-1: apply the rkmpp configure-sentinel patch.
+# deps/ffmpeg is gitignored + re-fetched (git clone) on clean builds, so the
+# on-disk configure edit is lost every clean cycle. Re-apply from the TRACKED
+# patch here — AFTER fetch/checkout, BEFORE configure — idempotently.
+# cwd is buildscripts/deps/ffmpeg (buildall.sh `pushd deps/$1`), so ../.. is buildscripts.
+ffmpeg_gs1_patch="../../patches/ffmpeg/0001-rkmpp-configure-sentinel-atmosphere-GS1.patch"
+if grep -q 'mpp_create mpp_buffer_sync_begin_f' configure; then
+	# pristine sentinel present -> apply
+	git apply -p1 "$ffmpeg_gs1_patch"
+	echo "ATMOSphere §GS-1: rkmpp configure-sentinel patch applied"
+elif grep -q 'ATMOSphere §GS-1' configure; then
+	echo "ATMOSphere §GS-1: rkmpp configure-sentinel patch already applied (skipping)"
+else
+	echo "ATMOSphere §GS-1: WARNING — neither pristine sentinel nor patch marker found in configure; rkmpp ABI check may differ from expected" >&2
+fi
+
 mkdir -p _build$ndk_suffix
 cd _build$ndk_suffix
 
@@ -29,6 +45,8 @@ args=(
 	--extra-cflags="-I$prefix_dir/include $cpuflags" --extra-ldflags="-L$prefix_dir/lib"
 
 	--enable-{jni,mediacodec,mbedtls,libdav1d,libxml2} --disable-vulkan
+	# ATMOSphere §GS-1: Rockchip MPP HW decode (HEVC/H.264/VP9) on RK3588 + libdrm for AV_PIX_FMT_DRM_PRIME
+	--enable-rkmpp --enable-libdrm
 	--disable-static --enable-shared --enable-{gpl,version3}
 
 	# disable unneeded parts
