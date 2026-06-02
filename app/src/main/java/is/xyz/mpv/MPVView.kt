@@ -112,6 +112,15 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
         MPVLib.setOptionString("hwdec", hwdec)
         MPVLib.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
         MPVLib.setOptionString("ao", "audiotrack,opensles")
+        // ATMOSphere §GZ-respin (2026-06-01) — multichannel HDMI passthrough.
+        // libmpv default `audio-channels=auto-safe` sets AO_INIT_SAFE_MULTICHANNEL_ONLY
+        // (audio/out/ao.c) which clamps HDMI output toward stereo, so 5.1/7.1 content
+        // was downmixed to a 2ch AudioTrack even though the deployed AudioPolicy
+        // advertises 5POINT1/7POINT1 on HDMI and the kernel/Arvus sink accept 6/8ch
+        // LPCM (captured-evidence: qa-results/recent_apps_1_1_8/audio_phase1_*/VERDICT.md
+        // — tinyplay 6ch → Arvus "Multi-CH PCM"). `auto` removes the clamp and adapts:
+        // multichannel on HDMI sinks that advertise it, stereo on 2ch sinks (BT/ES8388).
+        MPVLib.setOptionString("audio-channels", "auto")
         MPVLib.setOptionString("audio-set-media-role", "yes")
         MPVLib.setOptionString("tls-verify", "yes")
         MPVLib.setOptionString("tls-ca-file", "${this.context.filesDir.path}/cacert.pem")
