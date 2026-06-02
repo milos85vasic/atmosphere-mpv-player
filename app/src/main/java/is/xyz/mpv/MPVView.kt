@@ -23,7 +23,20 @@ internal class MPVView(context: Context, attrs: AttributeSet) : BaseMPVView(cont
         MPVLib.setOptionString("profile", "fast")
 
         // vo
-        setVo(if (sharedPreferences.getBoolean("gpu_next", false))
+        // ATMOSphere Issue C (2026-06-02) — default to vo=gpu-next (libplacebo).
+        // The deployed libmpv ships libplacebo (pl_renderer_create present) and
+        // gpu-next is the VO the drm_prime dmabuf-EGL hwdec interop targets for
+        // zero-copy 10-bit/HDR import on Mali-G610. Measured on D4
+        // (qa-results/issue_c_mpv_4k_20260602T000000Z/fix/c1_gpunext_rkmpp): with
+        // vo=gpu-next the rkmpp drm_prime frame still cannot import ONLY because
+        // libmpv was built with no drm_prime interop hwdec (buildscripts/scripts/
+        // mpv.sh passes no interop meson flags; only hwdec_aimagereader compiled).
+        // Once that REQUIRES_REBUILD interop fix lands (libdrm into dep_mpv +
+        // mpv meson drm/dmabuf-egl interop), gpu-next delivers HW-decoded smooth
+        // 4K HEVC10. Defaulting here so the win is in effect the moment the
+        // interop driver is present. SharedPref gpu_next still forces the choice
+        // for operators; absence now defaults to gpu-next instead of vanilla gpu.
+        setVo(if (sharedPreferences.getBoolean("gpu_next", true))
             "gpu-next"
         else
             "gpu")

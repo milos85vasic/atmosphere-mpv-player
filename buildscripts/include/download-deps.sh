@@ -75,6 +75,18 @@ fi
 # libplacebo
 [ ! -d libplacebo ] && git clone --recursive https://github.com/haasn/libplacebo
 
+# ATMOSphere §GS-2 (Issue C): libdrm — userspace DRM/GEM for AV_PIX_FMT_DRM_PRIME +
+# mpv's xf86drm.h. Pinned to v_libdrm. Mirror: gitlab.freedesktop.org/mesa/drm.
+if [ ! -d libdrm ]; then
+	git clone --depth 1 -b "libdrm-${v_libdrm}" https://gitlab.freedesktop.org/mesa/drm.git libdrm
+fi
+
+# ATMOSphere §GS-2 (Issue C): libdisplay-info — required by mpv's full DRM feature
+# (drm_common.c #includes <libdisplay-info/*.h>). Pure C, pinned to v_libdisplay_info.
+if [ ! -d libdisplay-info ]; then
+	git clone --depth 1 -b "${v_libdisplay_info}" https://gitlab.freedesktop.org/emersion/libdisplay-info.git libdisplay-info
+fi
+
 # mpv
 [ ! -d mpv ] && git clone https://github.com/mpv-player/mpv
 

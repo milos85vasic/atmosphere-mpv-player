@@ -18,6 +18,10 @@ v_mbedtls=3.6.5
 v_libxml2=2.15.2
 v_fontconfig=2.17.1
 
+# ATMOSphere §GS-2 (Issue C): drm_prime → GL dmabuf interop deps for mpv hwdec_drmprime
+v_libdrm=2.4.114
+v_libdisplay_info=0.3.0
+
 
 ## Dependency tree
 
@@ -33,7 +37,12 @@ dep_unibreak=()
 dep_libass=(freetype2 fontconfig fribidi harfbuzz unibreak)
 dep_lua=()
 dep_libplacebo=()
-dep_mpv=(ffmpeg libass lua libplacebo)
+# ATMOSphere §GS-2 (Issue C): libdrm + libdisplay-info enable mpv's full DRM feature
+# (features['drm'] gates hwdec_drmprime.c) + dmabuf-interop-gl, so the rkmpp drm_prime
+# 10-bit surface reaches the GL/libplacebo VO instead of force-falling to pure SW.
+dep_libdrm=()
+dep_libdisplay_info=()
+dep_mpv=(ffmpeg libass lua libplacebo libdrm libdisplay-info)
 dep_mpv_android=(mpv)
 
 
