@@ -54,6 +54,85 @@ if [ ! -f "$_JNI_ARM64/libmpv.so" ]; then
     exit 2
 fi
 
+# ===========================================================================
+# ATM-312 (§11.4.108 SOURCE→ARTIFACT) — stage freshly-built native libs into
+# jniLibs before gradle packages them, then hard-verify the drm_prime hwdec
+# interop landed.
+#
+# Root cause (FACT, captured qa-results/mpv_4k_glitch_20260604T042434Z/):
+# the §GS-2 (Issue C / ATM-312) buildscripts fix (depinfo.sh dep_mpv +=
+# libdrm libdisplay-info; mpv.sh -Ddrm=enabled + dmabuf-interop-gl egl-android
+# gate) genuinely produced a libmpv WITH the drm_prime dmabuf-EGL interop at
+# buildscripts/prefix/arm64/lib/libmpv.so (hwdec_drmprime.c compiled, advertises
+# the `drmprime` hwdec, NEEDED libdrm.so + libdisplay-info.so). BUT this
+# orchestrator packages the .so files in app/src/main/jniLibs/<abi>/ (== libs/
+# via symlink), and nobody ran ndk-build / mpv-android.sh to re-stage the
+# prefix output into jniLibs after the §GS-2 build. The shipped APK therefore
+# bundled a STALE libmpv (no drmprime) → MPV could not import the rkmpp
+# drm_prime 10-bit surface into vo=gpu-next → pure-SW 4K HEVC decode → glitch.
+# (libs/ is .gitignore'd — these .so are build artefacts, not committed source,
+# so the staging MUST happen here every build, NOT be a one-time manual copy.)
+#
+# Fix: if the meson prefix carries a libmpv with the interop, stage it + the
+# FFmpeg libs + the two NEW NEEDED deps (libdrm.so + libdisplay-info.so) into
+# jniLibs, then assert the interop is present. libplayer.so + libc++_shared.so
+# come from ndk-build / the NDK, not the meson prefix — left untouched.
+_PFX_ARM64=buildscripts/prefix/arm64/lib
+# Locate llvm-strip: the meson prefix is built with --disable-stripping
+# (mpv.sh), so the prefix .so are UNSTRIPPED (libavcodec ~56 MB). The canonical
+# ndk-build staging path strips on copy; replicate that so the APK + debugfs
+# native-lib injection pipeline don't bloat 3-4x. Fall back to an unstripped
+# copy (correct, just larger) if no strip tool is found.
+_LLVM_STRIP=""
+for _ndk in "${ANDROID_NDK_HOME:-}" "${ANDROID_HOME:-$HOME/Android/Sdk}/ndk/"*; do
+    for _cand in "$_ndk"/toolchains/llvm/prebuilt/*/bin/llvm-strip; do
+        if [ -x "$_cand" ]; then _LLVM_STRIP="$_cand"; break 2; fi
+    done
+done
+[ -z "$_LLVM_STRIP" ] && command -v llvm-strip >/dev/null 2>&1 && _LLVM_STRIP="llvm-strip"
+_stage_so() { # $1 = basename (no .so)
+    if [ -f "$_PFX_ARM64/$1.so" ]; then
+        cp -fp "$_PFX_ARM64/$1.so" "$_JNI_ARM64/$1.so"
+        # Strip to match the canonical ndk-build staging (avoid APK bloat).
+        if [ -n "$_LLVM_STRIP" ]; then
+            "$_LLVM_STRIP" --strip-unneeded "$_JNI_ARM64/$1.so" 2>/dev/null || true
+        fi
+        return 0
+    fi
+    return 1
+}
+if [ -f "$_PFX_ARM64/libmpv.so" ] && \
+   strings "$_PFX_ARM64/libmpv.so" 2>/dev/null | grep -qE 'hwdec_drmprime\.c|drm-drmprime-video-plane'; then
+    echo "[ATMOSphere-MPV] ATM-312: meson prefix libmpv carries drm_prime interop — staging into jniLibs"
+    for _so in libmpv libavcodec libavfilter libavformat libavutil \
+               libswresample libswscale libavdevice libdrm libdisplay-info; do
+        _stage_so "$_so" && echo "[ATMOSphere-MPV]   staged $_so.so"
+    done
+else
+    echo "[ATMOSphere-MPV] ATM-312: no interop-carrying prefix libmpv found — using committed jniLibs as-is"
+    echo "  (if 4K HW decode is broken, run: cd buildscripts && ./buildall.sh --arch arm64 mpv)"
+fi
+
+# Hard-verify the drm_prime hwdec interop is present in the libmpv that WILL be
+# packaged (§11.4.108 ARTIFACT layer — fail loudly, do NOT ship a SW-only MPV).
+if ! strings "$_JNI_ARM64/libmpv.so" 2>/dev/null | grep -qE 'hwdec_drmprime\.c|drm-drmprime-video-plane'; then
+    echo "[ATMOSphere-MPV] ERROR (ATM-312): $_JNI_ARM64/libmpv.so lacks the drm_prime hwdec interop."
+    echo "  4K HEVC would fall back to pure-SW decode (audio underruns, juddery video)."
+    echo "  Build it WITH the interop: cd buildscripts && ./buildall.sh --arch arm64 mpv"
+    echo "  (depinfo.sh dep_mpv must include libdrm+libdisplay-info; mpv.sh -Ddrm=enabled)."
+    exit 7
+fi
+# The interop-carrying libmpv has DT_NEEDED on libdrm.so + libdisplay-info.so —
+# they MUST be packaged alongside it or libmpv fails to load (UnsatisfiedLinkError).
+for _dep in libdrm libdisplay-info; do
+    if [ ! -f "$_JNI_ARM64/$_dep.so" ]; then
+        echo "[ATMOSphere-MPV] ERROR (ATM-312): $_JNI_ARM64/$_dep.so missing —"
+        echo "  the drm_prime libmpv DT_NEEDED it; packaging without it = boot UnsatisfiedLinkError."
+        exit 8
+    fi
+done
+echo "[ATMOSphere-MPV] ATM-312: verified jniLibs libmpv carries drm_prime interop + libdrm/libdisplay-info present ✓"
+
 # Pick a JDK ≥ 21 (gradle 8.14.3 + AGP 8.13.2 require it).
 _pick_jdk21() {
     if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
