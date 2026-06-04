@@ -101,8 +101,20 @@ _stage_so() { # $1 = basename (no .so)
     fi
     return 1
 }
-if [ -f "$_PFX_ARM64/libmpv.so" ] && \
-   strings "$_PFX_ARM64/libmpv.so" 2>/dev/null | grep -qE 'hwdec_drmprime\.c|drm-drmprime-video-plane'; then
+# SIGPIPE-safe drm_prime-interop probe. The naive `strings F | grep -qE …`
+# under `set -euo pipefail` is a §11.4.1 FAIL-bluff: on a multi-MB .so,
+# `grep -q` exits on the first match → `strings` gets SIGPIPE (exit 141) →
+# `pipefail` propagates 141 → the `&&`/`if` condition evaluates FALSE even
+# though the markers ARE present (build_119 19:18 exit-7 reproduced this on a
+# fully-interop libmpv). `grep -c` reads the WHOLE stream (no early exit, no
+# SIGPIPE) and `|| true` neutralises grep's exit-1-on-zero-matches under
+# `set -e`. Returns 0 (true) iff ≥1 interop marker is present.
+_has_drmprime_interop() { # $1 = path to .so
+    local _n
+    _n=$(strings "$1" 2>/dev/null | grep -cE 'hwdec_drmprime\.c|drm-drmprime-video-plane' || true)
+    [ "${_n:-0}" -gt 0 ]
+}
+if [ -f "$_PFX_ARM64/libmpv.so" ] && _has_drmprime_interop "$_PFX_ARM64/libmpv.so"; then
     echo "[ATMOSphere-MPV] ATM-312: meson prefix libmpv carries drm_prime interop — staging into jniLibs"
     for _so in libmpv libavcodec libavfilter libavformat libavutil \
                libswresample libswscale libavdevice libdrm libdisplay-info; do
@@ -115,7 +127,7 @@ fi
 
 # Hard-verify the drm_prime hwdec interop is present in the libmpv that WILL be
 # packaged (§11.4.108 ARTIFACT layer — fail loudly, do NOT ship a SW-only MPV).
-if ! strings "$_JNI_ARM64/libmpv.so" 2>/dev/null | grep -qE 'hwdec_drmprime\.c|drm-drmprime-video-plane'; then
+if ! _has_drmprime_interop "$_JNI_ARM64/libmpv.so"; then
     echo "[ATMOSphere-MPV] ERROR (ATM-312): $_JNI_ARM64/libmpv.so lacks the drm_prime hwdec interop."
     echo "  4K HEVC would fall back to pure-SW decode (audio underruns, juddery video)."
     echo "  Build it WITH the interop: cd buildscripts && ./buildall.sh --arch arm64 mpv"
