@@ -92,7 +92,13 @@ internal object Utils {
 
     fun copyAssets(context: Context) {
         val assetManager = context.assets
-        val files = arrayOf("cacert.pem")
+        // FIND-10 / ATM-312 Layer-3: ship mpv.conf so libmpv finds it at
+        // config-dir (= filesDir; BaseMPVView.kt:22). Before this, MPV shipped
+        // NO mpv.conf, so libmpv config-probed an absent path and logged
+        // "Cannot open file '.../mpv.conf': Permission denied"
+        // (recording_002:95415). Copying it removes that log AND config-pins
+        // the rkmpp/gpu-next decode intent as a floor under MPVView.initOptions.
+        val files = arrayOf("cacert.pem", "mpv.conf")
         val configDir = context.filesDir.path
 
         for (name in files) {
